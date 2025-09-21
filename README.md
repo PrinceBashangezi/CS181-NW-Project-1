@@ -3,6 +3,6 @@ Functionalities:
 2. Server side: myport, connect, list, terminate, exit
 
 Week 1:
--  Prince: 
--  Sultan:
--  Bryson: 
+-  Prince: help
+-  Sultan: send
+-  Bryson: myip, myport
