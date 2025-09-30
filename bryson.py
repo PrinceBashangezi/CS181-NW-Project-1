@@ -12,6 +12,7 @@ Commands supported:
 import socket
 import sys
 import threading
+from prince import availableOptions
 
 
 def get_local_ip():
@@ -100,12 +101,14 @@ def main():
 				print(get_local_ip())
 			elif cmd == 'myport':
 				print(port)
+			elif cmd == 'help':
+				print(availableOptions())
 			elif cmd == 'exit':
 				print('Exiting...')
 				stop_event.set()
 				break
 			else:
-				print('Unknown command (help handled by Prince)')
+				print('Unknown command \n', availableOptions())
 
 	except KeyboardInterrupt:
 		stop_event.set()
