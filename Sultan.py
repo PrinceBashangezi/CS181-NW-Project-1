@@ -1,6 +1,11 @@
 import threading
 MAX_MSG_LEN = 100
-def send_command(full_line: str, connections: dict, table_lock: threading.Lock):
+def send_command(full_line: str, conn_manager):
+    """
+    Send a message to a specific connection
+    full_line: complete command line (e.g., "send 1 Hello World")
+    conn_manager: ConnectionManager instance
+    """
     # parse: send <id> <message...>
     try:
         _, id_str, msg = full_line.split(maxsplit=2)
@@ -18,18 +23,20 @@ def send_command(full_line: str, connections: dict, table_lock: threading.Lock):
         print('Error: connection id must be an integer.')
         return
 
-    # get socket under lock
-    with table_lock:
-        sock = connections.get(cid, {}).get("sock")
-    if not sock:
+    # get socket using connection manager
+    conn_info = conn_manager.get_connection(cid)
+    if not conn_info or 'sock' not in conn_info:
         print(f'Error: no connection with id {cid}.')
         return
 
+    sock = conn_info['sock']
     try:
         sock.sendall((msg + '\n').encode('utf-8'))
         print(f'Message sent to {cid}')
     except OSError as e:
         print(f'Error: failed to send to {cid}: {e}')
+        # Remove the connection if it's broken
+        conn_manager.remove_connection(cid)
 
 
 def start_receiver_thread(sock, peer_ip, peer_port, on_socket_close):
@@ -49,7 +56,12 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close):
                 buf = buf[i+1:]
                 print(f'Message received from {peer_ip}')
                 print(f"Sender's Port: {peer_port}")
-                print(f'Message: \"{text}\"')
+                print(f'Message: "{text}"')
+    except (ConnectionResetError, BrokenPipeError, OSError):
+        # Connection was closed by peer
+        pass
+    except Exception as e:
+        print(f'Error in receiver loop: {e}')
     finally:
         try:
             on_socket_close(sock)

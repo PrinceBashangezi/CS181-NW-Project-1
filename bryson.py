@@ -12,19 +12,20 @@ Commands supported:
 import socket
 import sys
 import threading
-from prince import availableOptions
+from prince import availableOptions, connect, list, terminate
+from connection_manager import ConnectionManager
+from Sultan import send_command
 
 
-def get_local_ip():
+def get_local_ip(server_socket):
 	"""Return the first non-loopback IP for this host.
 
 	Uses a UDP socket to a public IP to pick the outbound interface without
 	sending any data. Falls back to hostname lookup or 127.0.0.1 on error.
 	"""
 	try:
-		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-			s.connect(('8.8.8.8', 80))
-			return s.getsockname()[0]
+			server_socket.connect(('8.8.8.8', 80))
+			return server_socket.getsockname()[0]
 	except Exception:
 		try:
 			return socket.gethostbyname(socket.gethostname())
@@ -81,6 +82,9 @@ def main():
 		print('Port must be an integer')
 		sys.exit(1)
 
+	# Create connection manager
+	conn_manager = ConnectionManager()
+	
 	stop_event = threading.Event()
 	listener = Listener(port, stop_event)
 	listener.start()
@@ -103,8 +107,26 @@ def main():
 				print(port)
 			elif cmd == 'help':
 				print(availableOptions())
+			elif cmd == 'connect':
+				if len(parts) != 3:
+					print("Usage: connect <destination> <port>")
+					continue
+				print(connect(parts[1], parts[2], conn_manager, get_local_ip(), port).strip())
+			elif cmd == 'list':
+				print(list(conn_manager.get_all_connections()).strip())
+			elif cmd == 'send':
+				if len(parts) < 3:
+					print('Usage: send <connection_id> <message>')
+					continue
+				send_command(line, conn_manager)
+			elif cmd == 'terminate':
+				if len(parts) != 2:
+					print('Usage: terminate <connection_id>')
+					continue
+				print(terminate(parts[1], conn_manager).strip())
 			elif cmd == 'exit':
 				print('Exiting...')
+				conn_manager.close_all_connections()
 				stop_event.set()
 				break
 			else:
