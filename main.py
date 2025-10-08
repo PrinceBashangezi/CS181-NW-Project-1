@@ -70,7 +70,7 @@ class P2PChatApp:
                 print(availableOptions())
                 
             elif cmd == 'myip':
-                print(get_local_ip(self.server_socket))
+                print(get_local_ip())
                 
             elif cmd == 'myport':
                 print(self.listening_port)

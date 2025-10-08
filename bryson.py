@@ -17,13 +17,15 @@ from connection_manager import ConnectionManager
 from Sultan import send_command
 
 
-def get_local_ip(server_socket):
+def get_local_ip():
 	"""Return the first non-loopback IP for this host.
 
 	Uses a UDP socket to a public IP to pick the outbound interface without
 	sending any data. Falls back to hostname lookup or 127.0.0.1 on error.
 	"""
 	try:
+			server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 			server_socket.connect(('8.8.8.8', 80))
 			return server_socket.getsockname()[0]
 	except Exception:
