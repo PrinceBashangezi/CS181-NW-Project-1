@@ -17,20 +17,41 @@ from connection_manager import ConnectionManager
 from Sultan import send_command
 
 
-def get_local_ip(server_socket):
+def get_local_ip():
 	"""Return the first non-loopback IP for this host.
 
-	Uses a UDP socket to a public IP to pick the outbound interface without
-	sending any data. Falls back to hostname lookup or 127.0.0.1 on error.
+	Uses a short TCP connection to a public IP (doesn't send application
+	data) to let the OS pick the outbound interface, then reads the
+	socket's own address. Falls back to hostname lookup or 127.0.0.1 on error.
 	"""
 	try:
-			server_socket.connect(('8.8.8.8', 80))
-			return server_socket.getsockname()[0]
+		# create_connection returns a connected socket; using a short timeout
+		with socket.create_connection(('8.8.8.8', 80), timeout=1) as s:
+			return s.getsockname()[0]
 	except Exception:
+		# Try hostname aliases (may return non-loopback addresses)
 		try:
-			return socket.gethostbyname(socket.gethostname())
+			hostname = socket.gethostname()
+			addrs = socket.gethostbyname_ex(hostname)[2]
+			for ip in addrs:
+				if not ip.startswith('127.'):
+					return ip
 		except Exception:
-			return '127.0.0.1'
+			pass
+
+		# Try getaddrinfo to discover any configured non-loopback IPv4 addresses
+		try:
+			for info in socket.getaddrinfo(socket.gethostname(), None):
+				ip = info[4][0]
+				# skip IPv6 and loopback
+				if ':' in ip:
+					continue
+				if not ip.startswith('127.'):
+					return ip
+		except Exception:
+			pass
+
+		return '127.0.0.1'
 
 
 class Listener(threading.Thread):
