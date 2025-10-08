@@ -79,7 +79,7 @@ class P2PChatApp:
                 if len(parts) != 3:
                     print("Usage: connect <destination> <port>")
                     return
-                result = connect(parts[1], parts[2], self.conn_manager, get_local_ip(self.server_socket), self.listening_port)
+                result = connect(parts[1], parts[2], self.conn_manager, get_local_ip(), self.listening_port)
                 print(result.strip())
                 
             elif cmd == 'list':
