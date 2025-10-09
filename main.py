@@ -41,7 +41,7 @@ class P2PChatApp:
                     
                     # Start receiver thread for incoming connection
                     thread = start_receiver_thread(conn, addr[0], addr[1], 
-                                                lambda s: self.conn_manager.remove_connection(conn_id))
+                                                lambda conn_id: self.conn_manager.remove_connection(conn_id), conn_id)
                     self.conn_manager.set_receiver_thread(conn_id, thread)
                     
                     print(f"✓ Connection established from {addr[0]}:{addr[1]} (ID: {conn_id})")

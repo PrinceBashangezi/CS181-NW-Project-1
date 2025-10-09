@@ -80,7 +80,7 @@ def connect(destination, port, conn_manager, my_ip=None, my_port=None):
         # Start receiver thread for this connection
         from Sultan import start_receiver_thread
         thread = start_receiver_thread(sock, destination, port_num, 
-                                     lambda s: conn_manager.remove_connection(conn_id))
+                                     lambda conn_id: conn_manager.remove_connection(conn_id), conn_id)
         conn_manager.set_receiver_thread(conn_id, thread)
         
         return f"✓ Connected to {destination} on port {port_num} (Connection ID: {conn_id})\n"

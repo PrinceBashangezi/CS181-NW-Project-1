@@ -39,14 +39,14 @@ def send_command(full_line: str, conn_manager):
         conn_manager.remove_connection(cid)
 
 
-def start_receiver_thread(sock, peer_ip, peer_port, on_socket_close):
+def start_receiver_thread(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
     t = threading.Thread(target=_receiver_loop,
-                         args=(sock, peer_ip, peer_port, on_socket_close),
+                         args=(sock, peer_ip, peer_port, on_socket_close, conn_id),
                          daemon=True)
     t.start()
     return t
 
-def _receiver_loop(sock, peer_ip, peer_port, on_socket_close):
+def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
     buf = b''
     try:
         while (data := sock.recv(4096)):
@@ -64,7 +64,10 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close):
         print(f'Error in receiver loop: {e}')
     finally:
         try:
-            on_socket_close(sock)
+            if conn_id is not None:
+                on_socket_close(conn_id)
+            else:
+                on_socket_close(sock)
         except Exception:
             pass
 
