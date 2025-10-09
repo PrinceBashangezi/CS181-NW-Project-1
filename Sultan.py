@@ -48,7 +48,6 @@ def start_receiver_thread(sock, peer_ip, peer_port, on_socket_close, conn_id=Non
     return t
 
 def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
-    print(f"DEBUG: Receiver thread started for connection {conn_id} from {peer_ip}:{peer_port}")
     buf = b''
     try:
         # Set socket timeout to prevent blocking indefinitely
@@ -57,7 +56,6 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
             try:
                 data = sock.recv(4096)
                 if not data:  # Connection closed by peer
-                    print(f"DEBUG: Connection {conn_id} closed by peer (no data)")
                     break
                 buf += data
                 while (i := buf.find(b'\n')) != -1:          # newline-framed messages
@@ -69,19 +67,18 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
             except socket.timeout:
                 # Timeout is normal, continue the loop
                 continue
-    except (ConnectionResetError, BrokenPipeError, OSError) as e:
+    except (ConnectionResetError, BrokenPipeError, OSError):
         # Connection was closed by peer
-        print(f"DEBUG: Connection {conn_id} closed by peer: {e}")
         pass
     except Exception as e:
         print(f'Error in receiver loop: {e}')
     finally:
-        print(f"DEBUG: Receiver thread ending for connection {conn_id}")
+        # Only call cleanup if the connection was actually closed
         try:
             if conn_id is not None:
                 on_socket_close(conn_id)
             else:
                 on_socket_close(sock)
-        except Exception as e:
-            print(f"DEBUG: Error in cleanup callback: {e}")
+        except Exception:
+            pass
 
