@@ -24,10 +24,13 @@ def get_local_ip():
 	sending any data. Falls back to hostname lookup or 127.0.0.1 on error.
 	"""
 	try:
-			server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			server_socket.connect(('8.8.8.8', 80))
-			return server_socket.getsockname()[0]
+		# Use UDP socket with timeout for better performance
+		server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		server_socket.settimeout(2.0)  # 2 second timeout
+		server_socket.connect(('8.8.8.8', 80))
+		local_ip = server_socket.getsockname()[0]
+		server_socket.close()
+		return local_ip
 	except Exception:
 		try:
 			return socket.gethostbyname(socket.gethostname())
