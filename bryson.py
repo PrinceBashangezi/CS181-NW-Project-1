@@ -21,7 +21,7 @@ def get_local_ip():
 	"""Return the first non-loopback IP for this host.
 
 	Uses a UDP socket to a public IP to pick the outbound interface without
-	sending any data. Falls back to hostname lookup or 127.0.0.1 on error.
+	sending any data. Falls back to hostname lookup on error.
 	"""
 	try:
 		# Use UDP socket with timeout for better performance
@@ -35,7 +35,7 @@ def get_local_ip():
 		try:
 			return socket.gethostbyname(socket.gethostname())
 		except Exception:
-			return '127.0.0.1'
+			return 'Could not determine local IP'
 
 
 class Listener(threading.Thread):
@@ -46,7 +46,9 @@ class Listener(threading.Thread):
 		self.sock = None
 
 	def run(self):
+		# create TCP socket for listening
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		# allow quick restart on the same port
 		self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		try:
 			self.sock.bind(('', self.port))
@@ -56,6 +58,7 @@ class Listener(threading.Thread):
 			self.stop_event.set()
 			return
 
+		# short timeout so thread can check stop_event frequently
 		self.sock.settimeout(1.0)
 		while not self.stop_event.is_set():
 			try:
@@ -64,12 +67,14 @@ class Listener(threading.Thread):
 				continue
 			except Exception:
 				break
+			# log then immediately close incoming connections
 			print(f"Incoming connection from {addr[0]}:{addr[1]} (auto-closed)")
 			try:
 				conn.close()
 			except Exception:
 				pass
 
+		# close listening socket on exit
 		try:
 			self.sock.close()
 		except Exception:
@@ -150,7 +155,7 @@ if __name__ == '__main__':
 
 
 
-# example usage:
+# example test usage:
 # python3 bryson.py 4545 <<'EOF'
 # myip
 # myport
