@@ -1,4 +1,5 @@
 import threading
+import socket
 MAX_MSG_LEN = 100
 def send_command(full_line: str, conn_manager):
     """
@@ -47,27 +48,40 @@ def start_receiver_thread(sock, peer_ip, peer_port, on_socket_close, conn_id=Non
     return t
 
 def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
+    print(f"DEBUG: Receiver thread started for connection {conn_id} from {peer_ip}:{peer_port}")
     buf = b''
     try:
-        while (data := sock.recv(4096)):
-            buf += data
-            while (i := buf.find(b'\n')) != -1:          # newline-framed messages
-                text = buf[:i].decode('utf-8', 'replace')
-                buf = buf[i+1:]
-                print(f'Message received from {peer_ip}')
-                print(f"Sender's Port: {peer_port}")
-                print(f'Message: "{text}"')
-    except (ConnectionResetError, BrokenPipeError, OSError):
+        # Set socket timeout to prevent blocking indefinitely
+        sock.settimeout(1.0)
+        while True:
+            try:
+                data = sock.recv(4096)
+                if not data:  # Connection closed by peer
+                    print(f"DEBUG: Connection {conn_id} closed by peer (no data)")
+                    break
+                buf += data
+                while (i := buf.find(b'\n')) != -1:          # newline-framed messages
+                    text = buf[:i].decode('utf-8', 'replace')
+                    buf = buf[i+1:]
+                    print(f'Message received from {peer_ip}')
+                    print(f"Sender's Port: {peer_port}")
+                    print(f'Message: "{text}"')
+            except socket.timeout:
+                # Timeout is normal, continue the loop
+                continue
+    except (ConnectionResetError, BrokenPipeError, OSError) as e:
         # Connection was closed by peer
+        print(f"DEBUG: Connection {conn_id} closed by peer: {e}")
         pass
     except Exception as e:
         print(f'Error in receiver loop: {e}')
     finally:
+        print(f"DEBUG: Receiver thread ending for connection {conn_id}")
         try:
             if conn_id is not None:
                 on_socket_close(conn_id)
             else:
                 on_socket_close(sock)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"DEBUG: Error in cleanup callback: {e}")
 
