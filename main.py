@@ -12,6 +12,7 @@ from connection_manager import ConnectionManager
 from prince import availableOptions, connect, list, terminate
 from Sultan import send_command, start_receiver_thread
 from bryson import get_local_ip
+import time
 
 
 class P2PChatApp:
@@ -140,7 +141,6 @@ class P2PChatApp:
         self.server_thread.start()
         
         # Wait a moment for server to start
-        import time
         time.sleep(0.5)
         
         if self.stop_event.is_set():

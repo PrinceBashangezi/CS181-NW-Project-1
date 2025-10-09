@@ -61,9 +61,8 @@ def connect(destination, port, conn_manager, my_ip=None, my_port=None):
         return f"Error: Port must be an integer\n"
     
     # Check for self-connection
-    if my_ip and my_port:
-        if destination == my_ip and port_num == my_port:
-            return f"Error: Cannot connect to self ({my_ip}:{port_num})\n"
+    if destination == my_ip or port_num == my_port:
+        return f"Error: Cannot connect to self ({my_ip}:{port_num})\n"
     
     # Check for duplicate connection
     if is_duplicate_connection(destination, port_num, conn_manager):
@@ -71,9 +70,8 @@ def connect(destination, port, conn_manager, my_ip=None, my_port=None):
     
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5.0)  # 5 second timeout
-        sock.connect((destination, port_num))
-        
+        sock.settimeout(5.0)  # 5 second timeout for better reliability
+        sock.connect((destination, port_num))        
         # Add to connection manager
         conn_id = conn_manager.add_connection(sock, destination, port_num)
         
