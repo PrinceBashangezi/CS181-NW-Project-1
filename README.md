@@ -32,3 +32,9 @@ python3 main.py <listening_port>
 3. In second instance: `connect 127.0.0.1 12345`
 4. Send messages: `send 1 Hello World!`
 5. List connections: `list`
+
+
+Bonus Project:
+Bryson: Handle sendfile in main()
+Prince: implement sendfile()
+Sultan: implement receiving files
