@@ -1,5 +1,6 @@
 import socket
 import re
+import os
 
 def is_valid_ip(ip):
     """Validate IP address format (IPv4)"""
@@ -36,6 +37,7 @@ Available commands:
   list                         - Display all active connections (ID, IP, port)
   terminate <connection_id>    - Close the connection with the specified ID
   send <connection_id> <msg>   - Send a message (up to 100 chars) to the specified connection
+  sendfile <connection_id> <filepath> - Send a file to the specified connection
   exit                         - Close all connections and terminate the program
 """)
 
@@ -125,3 +127,55 @@ def terminate(connection_id, connections_dict):
             return f"Error: Connection {conn_id} not found\n"
     except ValueError:
         return "Error: Connection ID must be an integer\n"
+
+def sendfile(connection_id, filepath, conn_manager):
+    """
+    Send a file to the specified connection
+    connection_id: ID of the connection to send to
+    filepath: path to the file to send
+    conn_manager: ConnectionManager instance
+    """
+    # Validate connection ID
+    try:
+        conn_id = int(connection_id)
+    except ValueError:
+        return f"Error: Connection ID must be an integer\n"
+    
+    # Get connection info
+    conn_info = conn_manager.get_connection(conn_id)
+    if not conn_info or 'sock' not in conn_info:
+        return f"Error: No connection with id {conn_id}\n"
+    
+    # Validate file exists and is readable
+    if not os.path.exists(filepath):
+        return f"Error: File '{filepath}' does not exist\n"
+    
+    if not os.path.isfile(filepath):
+        return f"Error: '{filepath}' is not a file\n"
+    
+    try:
+        # Get file size
+        file_size = os.path.getsize(filepath)
+        filename = os.path.basename(filepath)
+        
+        # Read file data
+        with open(filepath, 'rb') as f:
+            file_data = f.read()
+        
+        sock = conn_info['sock']
+        
+        # Send file header: FILE:<filename>:<size>\n
+        header = f"FILE:{filename}:{file_size}\n"
+        sock.sendall(header.encode('utf-8'))
+        
+        # Send file data
+        sock.sendall(file_data)
+        
+        return f"File '{filename}' ({file_size} bytes) sent to connection {conn_id}\n"
+        
+    except PermissionError:
+        return f"Error: Permission denied reading file '{filepath}'\n"
+    except OSError as e:
+        return f"Error: Failed to send file: {e}\n"
+    except Exception as e:
+        return f"Error: Unexpected error sending file: {e}\n"

@@ -9,7 +9,7 @@ import sys
 import threading
 import signal
 from connection_manager import ConnectionManager
-from prince import availableOptions, connect, list, terminate
+from prince import availableOptions, connect, list, terminate, sendfile
 from Sultan import send_command, start_receiver_thread
 from bryson import get_local_ip
 import time
@@ -99,6 +99,13 @@ class P2PChatApp:
                     print("Usage: send <connection_id> <message>")
                     return
                 send_command(line, self.conn_manager)
+                
+            elif cmd == 'sendfile':
+                if len(parts) != 3:
+                    print("Usage: sendfile <connection_id> <filepath>")
+                    return
+                result = sendfile(parts[1], parts[2], self.conn_manager)
+                print(result.strip())
                 
             elif cmd == 'exit':
                 print("Exiting...")
