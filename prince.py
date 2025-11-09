@@ -1,5 +1,4 @@
 import socket
-import re
 import os
 
 def is_valid_ip(ip):

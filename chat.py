@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Unified P2P Chat Application
 Combines all work into a single cohesive program
