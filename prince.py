@@ -164,7 +164,7 @@ def sendfile(connection_id, filepath, conn_manager):
         sock = conn_info['sock']
         
         # Send file header: FILE:<filename>:<size>\n
-        header = f"FILE:{filename}:{file_size}\n"
+        header = f"__FILE__ {filename} {file_size}\n"
         sock.sendall(header.encode('utf-8'))
         
         # Send file data
