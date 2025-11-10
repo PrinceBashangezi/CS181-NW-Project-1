@@ -2,7 +2,25 @@ import threading
 import socket
 import os
 import hashlib
+import subprocess
 MAX_MSG_LEN = 100
+
+def play_notification_sound():
+    """Play a notification sound"""
+    try:
+        # Use the system "Glass" sound (built-in)
+        subprocess.run(['afplay', '/System/Library/Sounds/Funk.aiff'], 
+                        check=False, timeout=1, 
+                        stdout=subprocess.DEVNULL, 
+                        stderr=subprocess.DEVNULL)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        # Fallback to terminal bell
+        print('\a', end='', flush=True)
+    
+    except Exception:
+        # Silent fallback - don't break the program if sound fails
+        pass
+
 def send_command(full_line: str, conn_manager):
     """
     Send a message to a specific connection
@@ -141,6 +159,8 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
                             print(f'Message received from {peer_ip}')
                             print(f"Sender's Port: {peer_port}")
                             print(f'Message: "{line}"')
+                            # Play notification sound
+                            play_notification_sound()
 
                     # 2) if we ARE currently receiving a file, consume raw bytes
                     else:
@@ -198,6 +218,8 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
                             if received_checksum and received_checksum == expected_checksum:
                                 print(f'File "{file_name}" received successfully from {peer_ip}:{peer_port}')
                                 print(f'Checksum verified: {received_checksum[:16]}...')
+                                # Play notification sound for successful file transfer
+                                play_notification_sound()
                             else:
                                 # Checksum mismatch - file is corrupted
                                 print(f'ERROR: File "{file_name}" is corrupted! Checksum mismatch.')
