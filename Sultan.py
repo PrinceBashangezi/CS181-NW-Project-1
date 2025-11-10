@@ -1,6 +1,7 @@
 import threading
 import socket
 import os
+import hashlib
 MAX_MSG_LEN = 100
 def send_command(full_line: str, conn_manager):
     """
@@ -57,6 +58,8 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
     file_obj = None
     file_bytes_remaining = 0
     file_name = None
+    expected_checksum = None
+    file_hasher = None
 
     try:
         # prevent blocking forever
@@ -66,6 +69,17 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
             try:
                 data = sock.recv(4096)
                 if not data:  # peer closed
+                    # Clean up any partially received file
+                    if receiving_file:
+                        if file_obj:
+                            file_obj.close()
+                            file_obj = None
+                        if file_name and os.path.exists(file_name):
+                            try:
+                                os.remove(file_name)
+                                print(f'Connection closed during file transfer. Incomplete file "{file_name}" deleted.')
+                            except:
+                                pass
                     break
 
                 buf += data
@@ -83,9 +97,9 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
 
                         # check if this line is a file header
                         if line.startswith('__FILE__ '):
-                            # expected format: __FILE__ <filename> <size>
-                            parts = line.split(' ', 2)
-                            if len(parts) != 3:
+                            # expected format: __FILE__ <filename> <size> <checksum>
+                            parts = line.split(' ', 3)
+                            if len(parts) != 4:
                                 print('Received malformed file header.')
                                 continue
 
@@ -95,9 +109,15 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
                             except ValueError:
                                 print('Received file header with invalid size.')
                                 continue
+                            
+                            expected_checksum = parts[3].strip()
 
                             # make sure we don't accidentally create weird paths
                             file_name = os.path.basename(file_name_raw)
+                            
+                            # Initialize hasher for checksum verification
+                            file_hasher = hashlib.sha256()
+                            
                             try:
                                 file_obj = open(file_name, 'wb')
                             except OSError as e:
@@ -107,6 +127,8 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
                                 file_obj = None
                                 file_bytes_remaining = 0
                                 file_name = None
+                                expected_checksum = None
+                                file_hasher = None
                                 continue
 
                             receiving_file = True
@@ -126,10 +148,19 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
                             # should not happen, but be safe
                             if file_obj:
                                 file_obj.close()
+                                file_obj = None
+                            # Clean up corrupted file if it exists
+                            if file_name and os.path.exists(file_name):
+                                try:
+                                    os.remove(file_name)
+                                except:
+                                    pass
                             print(f'File "{file_name}" received from {peer_ip}:{peer_port}')
                             receiving_file = False
                             file_obj = None
                             file_name = None
+                            expected_checksum = None
+                            file_hasher = None
                             continue
 
                         if not buf:
@@ -138,19 +169,54 @@ def _receiver_loop(sock, peer_ip, peer_port, on_socket_close, conn_id=None):
 
                         # write as much as we can from buf into the file
                         chunk = buf[:file_bytes_remaining]
-                        if file_obj:
-                            file_obj.write(chunk)
                         file_bytes_remaining -= len(chunk)
                         buf = buf[len(chunk):]
+                        
+                        # Update checksum as we receive data
+                        if file_hasher:
+                            file_hasher.update(chunk)
+                        
+                        # Write to file
+                        if file_obj:
+                            file_obj.write(chunk)
 
                         if file_bytes_remaining == 0:
-                            # file complete
+                            # file complete - verify checksum before finalizing
                             if file_obj:
                                 file_obj.close()
-                            print(f'File "{file_name}" received successfully from {peer_ip}:{peer_port}')
+                                file_obj = None
+                            
+                            # Calculate checksum of received data
+                            if file_hasher:
+                                received_checksum = file_hasher.hexdigest()
+                            else:
+                                # Should not happen, but handle gracefully
+                                print(f'ERROR: Checksum calculator not initialized for file "{file_name}"')
+                                received_checksum = None
+                            
+                            # Verify checksum matches
+                            if received_checksum and received_checksum == expected_checksum:
+                                print(f'File "{file_name}" received successfully from {peer_ip}:{peer_port}')
+                                print(f'Checksum verified: {received_checksum[:16]}...')
+                            else:
+                                # Checksum mismatch - file is corrupted
+                                print(f'ERROR: File "{file_name}" is corrupted! Checksum mismatch.')
+                                print(f'Expected: {expected_checksum[:16]}...')
+                                print(f'Received: {received_checksum[:16]}...')
+                                # Delete the corrupted file
+                                try:
+                                    if file_name and os.path.exists(file_name):
+                                        os.remove(file_name)
+                                        print(f'Corrupted file "{file_name}" has been deleted.')
+                                except Exception as e:
+                                    print(f'Warning: Could not delete corrupted file: {e}')
+                            
+                            # Reset state
                             receiving_file = False
                             file_obj = None
                             file_name = None
+                            expected_checksum = None
+                            file_hasher = None
                             # then we loop back and process any remaining buf as chat/header
 
             except socket.timeout:

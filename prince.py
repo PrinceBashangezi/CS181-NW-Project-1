@@ -1,5 +1,6 @@
 import socket
 import os
+import hashlib
 
 def is_valid_ip(ip):
     """Validate IP address format (IPv4)"""
@@ -61,9 +62,9 @@ def connect(destination, port, conn_manager, my_ip=None, my_port=None):
     except ValueError:
         return f"Error: Port must be an integer\n"
     
-    # Check for self-connection
-    if destination == my_ip or port_num == my_port:
-        return f"Error: Cannot connect to self ({my_ip}:{port_num})\n"
+    # # Check for self-connection
+    # if destination == my_ip or port_num == my_port:
+    #     return f"Error: Cannot connect to self ({my_ip}:{port_num})\n"
     
     # Check for duplicate connection
     if is_duplicate_connection(destination, port_num, conn_manager):
@@ -157,14 +158,17 @@ def sendfile(connection_id, filepath, conn_manager):
         file_size = os.path.getsize(filepath)
         filename = os.path.basename(filepath)
         
-        # Read file data
+        # Read file data and calculate checksum
         with open(filepath, 'rb') as f:
             file_data = f.read()
         
+        # Calculate SHA256 checksum for integrity verification
+        checksum = hashlib.sha256(file_data).hexdigest()
+        
         sock = conn_info['sock']
         
-        # Send file header: FILE:<filename>:<size>\n
-        header = f"__FILE__ {filename} {file_size}\n"
+        # Send file header: __FILE__ <filename> <size> <checksum>\n
+        header = f"__FILE__ {filename} {file_size} {checksum}\n"
         sock.sendall(header.encode('utf-8'))
         
         # Send file data
